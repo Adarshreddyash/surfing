@@ -3,7 +3,7 @@ Surfing weights to edge device
 
 # 🌊 Surfing Weights
 
-A Python package for streaming transformer model weights to enable efficient AI inference on edge devices, IoT, and mobile platforms.
+A Python Server for streaming transformer model weights to enable efficient AI inference on edge devices, IoT, and mobile platforms.
 
 ## 🚀 Key Features
 
