@@ -9,7 +9,7 @@ import logging
 
 
 class WeightServer:
-    def __init__(self, chunks_dir, port=8765):
+    def __init__(self, chunks_dir, port=8000):
         self.chunks_dir = Path(chunks_dir)
         self.port = port
         self.cache = {}  # In-memory cache for frequently accessed weights
@@ -84,7 +84,9 @@ class WeightServer:
 
     async def start_server(self):
         self.logger.info(f"Starting weight server on port {self.port}")
-        async with websockets.serve(self.handle_client, "localhost", self.port):
+        async def handler(websocket, path):
+            await self.handle_client(websocket, path)
+        async with websockets.serve(handler, "localhost", self.port):
             await asyncio.Future()  # Run forever
 
 

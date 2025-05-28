@@ -55,8 +55,9 @@ class StreamingBertModel(nn.Module):
 
         for attempt in range(max_retries):
             try:
+                # Remove unsupported 'timeout' argument for websockets.connect
                 async with websockets.connect(
-                    self.websocket_uri, timeout=30, ping_interval=20, ping_timeout=10
+                    self.websocket_uri, ping_interval=20, ping_timeout=10
                 ) as ws:
                     request = f"GET {component_type} {component_id}"
                     await ws.send(request)

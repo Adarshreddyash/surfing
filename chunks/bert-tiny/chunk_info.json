@@ -1,0 +1,24 @@
+{
+  "model_name": "prajjwal1/bert-tiny",
+  "model_type": "bert",
+  "num_layers": 2,
+  "chunks": {
+    "embeddings": {
+      "file": "embeddings.pt",
+      "size_mb": 7.580255508422852
+    },
+    "layer_0": {
+      "file": "layer_0.pt",
+      "size_mb": 0.3830442428588867
+    },
+    "layer_1": {
+      "file": "layer_1.pt",
+      "size_mb": 0.3830442428588867
+    },
+    "pooler": {
+      "file": "pooler.pt",
+      "size_mb": 0.03310871124267578
+    }
+  },
+  "total_size_mb": 8.3794527053833
+}
