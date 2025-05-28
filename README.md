@@ -156,13 +156,38 @@ await server.start_servers()
 ## 🛠️ CLI Tools
 
 ### Chunk Models
-```bash
-# Chunk a model
-streaming-weights-chunk prajjwal1/bert-tiny --output-dir ./chunks --compress
 
-# Start weight server
-streaming-weights-server --chunks-dir ./chunks --port 8765
+Chunking splits a model into smaller pieces that can be streamed on demand:
+
+```bash
+# Basic chunking
+python -m streaming_weights.chunker prajjwal1/bert-tiny --output-dir ./chunks/bert-tiny
+
+# With compression (recommended for edge devices)
+python -m streaming_weights.chunker prajjwal1/bert-tiny --output-dir ./chunks/bert-tiny --compress
+
+# With verbose logging
+python -m streaming_weights.chunker prajjwal1/bert-tiny --output-dir ./chunks/bert-tiny --verbose
 ```
+
+After chunking, your output directory will contain the model's embedding layer, individual transformer layers, pooler layer, configuration, and chunk metadata.
+
+### Start Weight Server
+
+The weight server provides model chunks on demand via WebSocket:
+
+```bash
+# Start a weight server on the default port (8765)
+python -m streaming_weights.weight_server --chunks-dir ./chunks/bert-tiny
+
+# Specify a custom port
+python -m streaming_weights.weight_server --chunks-dir ./chunks/bert-tiny --port 9000
+
+# With verbose logging
+python -m streaming_weights.weight_server --chunks-dir ./chunks/bert-tiny --verbose
+```
+
+Once the server is running, you can connect to it using the StreamingBertModel as shown in the examples above.
 
 ## 📈 Use Cases
 

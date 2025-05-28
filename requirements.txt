@@ -1,0 +1,10 @@
+torch>=1.9.0
+transformers>=4.20.0
+websockets>=10.0
+requests
+numpy
+
+# Optional server dependencies
+# fastapi
+# uvicorn
+# aioredis
