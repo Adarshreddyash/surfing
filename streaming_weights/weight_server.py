@@ -18,7 +18,7 @@ class WeightServer:
         if not self.chunks_dir.exists():
             raise FileNotFoundError(f"Chunks directory not found: {self.chunks_dir}")
 
-    async def handle_client(self, websocket, path):
+    async def handle_client(self, websocket, path=""):
         try:
             async for message in websocket:
                 response = await self.process_request(message)
@@ -84,8 +84,8 @@ class WeightServer:
 
     async def start_server(self):
         self.logger.info(f"Starting weight server on port {self.port}")
-        async def handler(websocket, path):
-            await self.handle_client(websocket, path)
+        async def handler(websocket):
+            await self.handle_client(websocket, "")
         async with websockets.serve(handler, "localhost", self.port):
             await asyncio.Future()  # Run forever
 
