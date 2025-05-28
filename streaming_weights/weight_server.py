@@ -7,7 +7,7 @@ import io
 from pathlib import Path
 import logging
 
-
+ 
 class WeightServer:
     def __init__(self, chunks_dir, port=8000):
         self.chunks_dir = Path(chunks_dir)
