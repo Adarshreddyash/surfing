@@ -64,15 +64,19 @@ class S3Backend(StorageBackend):
         # Create S3 client with provided credentials
         # If no credentials are provided, boto3 will look for them in the environment
         # or credentials file, or instance profile
-        self.s3 = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            aws_session_token=aws_session_token,
-            profile_name=profile_name,
-            region_name=region_name,
-            endpoint_url=endpoint_url
-        )
+        # Create session with profile if provided, otherwise use default credentials
+        if profile_name:
+            session = boto3.Session(profile_name=profile_name)
+            self.s3 = session.client('s3', endpoint_url=endpoint_url)
+        else:
+            self.s3 = boto3.client(
+                's3',
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_session_token=aws_session_token,
+                region_name=region_name,
+                endpoint_url=endpoint_url
+            )
         
         # Verify bucket exists and is accessible
         try:
