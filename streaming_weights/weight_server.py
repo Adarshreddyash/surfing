@@ -6,17 +6,38 @@ import json
 import io
 from pathlib import Path
 import logging
+from typing import Optional
 
- 
+from .storage import StorageBackend, FilesystemBackend
+
 class WeightServer:
-    def __init__(self, chunks_dir, port=8000):
-        self.chunks_dir = Path(chunks_dir)
+    def __init__(self, storage_backend: Optional[StorageBackend] = None, chunks_dir: Optional[str] = None, port: int = 8000, cache_size_mb: int = 100):
+        """
+        Initialize the weight server.
+        
+        Args:
+            storage_backend: Storage backend to use. If None, a FilesystemBackend will be created using chunks_dir.
+            chunks_dir: Directory containing model chunks. Only used if storage_backend is None.
+            port: Port to run the server on.
+            cache_size_mb: Maximum size of the in-memory cache in MB.
+        """
         self.port = port
         self.cache = {}  # In-memory cache for frequently accessed weights
+        self.cache_size_mb = cache_size_mb
+        self.cache_size_bytes = cache_size_mb * 1024 * 1024
+        self.current_cache_size = 0
         self.logger = logging.getLogger(__name__)
         
-        if not self.chunks_dir.exists():
-            raise FileNotFoundError(f"Chunks directory not found: {self.chunks_dir}")
+        # Set up storage backend
+        if storage_backend is not None:
+            self.storage = storage_backend
+        elif chunks_dir is not None:
+            chunks_path = Path(chunks_dir)
+            if not chunks_path.exists():
+                raise FileNotFoundError(f"Chunks directory not found: {chunks_path}")
+            self.storage = FilesystemBackend(chunks_path)
+        else:
+            raise ValueError("Either storage_backend or chunks_dir must be provided")
 
     async def handle_client(self, websocket, path=""):
         try:
@@ -54,20 +75,25 @@ class WeightServer:
                 self.logger.debug(f"Cache hit for {cache_key}")
                 weights_bytes = self.cache[cache_key]
             else:
-                # Load from disk
-                file_path = self.chunks_dir / filename
-                if not file_path.exists():
+                # Check if file exists in storage
+                if not await self.storage.exists(filename):
                     return json.dumps({"success": False, "error": f"File not found: {filename}"})
 
-                self.logger.info(f"Loading {filename} from disk")
-                # Load state dict and serialize
-                state_dict = torch.load(file_path, map_location="cpu")
+                self.logger.info(f"Loading {filename} from storage")
+                # Load weights from storage
+                weights_bytes = await self.storage.load(filename)
+                
+                # Deserialize, then reserialize to ensure consistent format
+                buffer = io.BytesIO(weights_bytes)
+                state_dict = torch.load(buffer, map_location="cpu")
+                
+                # Reserialize
                 buffer = io.BytesIO()
                 torch.save(state_dict, buffer)
                 weights_bytes = buffer.getvalue()
 
-                # Cache for future requests
-                self.cache[cache_key] = weights_bytes
+                # Update cache with LRU policy
+                await self._update_cache(cache_key, weights_bytes)
 
             # Return serialized weights
             return json.dumps(
@@ -83,6 +109,30 @@ class WeightServer:
             return json.dumps({"success": False, "error": str(e)})
 
     async def start_server(self):
+        # Print a nice startup banner
+        print("\n" + "=" * 60)
+        print("🌊 Surfing Weight Server v1.0")
+        print(f"🚀 Starting server on port {self.port}")
+        
+        # Print storage backend info
+        if isinstance(self.storage, FilesystemBackend):
+            print(f"📂 Storage: Local Filesystem ({self.storage.base_dir})")
+        else:
+            # For S3 or other backends
+            storage_type = self.storage.__class__.__name__
+            print(f"☁️  Storage: {storage_type}")
+            
+            # If it's S3, show bucket info
+            if hasattr(self.storage, 'bucket_name'):
+                bucket_info = f"{self.storage.bucket_name}"
+                if hasattr(self.storage, 'prefix') and self.storage.prefix:
+                    bucket_info += f"/{self.storage.prefix}"
+                print(f"🪣 S3 Bucket: {bucket_info}")
+        
+        print(f"💾 Cache Size: {self.cache_size_mb} MB")
+        print("📡 Ready to serve model weights!")
+        print("=" * 60 + "\n")
+        
         self.logger.info(f"Starting weight server on port {self.port}")
         async def handler(websocket):
             await self.handle_client(websocket, "")
@@ -91,13 +141,46 @@ class WeightServer:
 
 
 # CLI entry point
+    async def _update_cache(self, key: str, data: bytes) -> None:
+        """Update the cache with the given key and data using LRU policy."""
+        # If data is too large for the cache, don't cache it
+        if len(data) > self.cache_size_bytes:
+            self.logger.warning(f"Data for {key} is too large for cache ({len(data)} bytes)")
+            return
+            
+        # If adding this would exceed the cache size, remove items until it fits
+        data_size = len(data)
+        while self.current_cache_size + data_size > self.cache_size_bytes and self.cache:
+            # Remove the least recently used item (first item in the cache)
+            lru_key = next(iter(self.cache))
+            lru_data = self.cache.pop(lru_key)
+            self.current_cache_size -= len(lru_data)
+            self.logger.debug(f"Removed {lru_key} from cache (size: {len(lru_data)} bytes)")
+            
+        # Add the new item to the cache
+        self.cache[key] = data
+        self.current_cache_size += data_size
+        self.logger.debug(f"Added {key} to cache (size: {data_size} bytes)")
+        
+        # Move the key to the end of the cache (most recently used)
+        # This is done by popping and re-adding
+        self.cache[key] = self.cache.pop(key)
+
+
 def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Start a weight server for streaming model weights")
-    parser.add_argument("--chunks-dir", "-d", required=True, help="Directory containing model chunks")
+    parser.add_argument("--chunks-dir", "-d", help="Directory containing model chunks")
     parser.add_argument("--port", "-p", type=int, default=8765, help="Port to run server on")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--cache-size", "-c", type=int, default=100, help="Maximum cache size in MB")
+    
+    # S3 options
+    parser.add_argument("--s3", action="store_true", help="Use S3 storage backend")
+    parser.add_argument("--s3-bucket", help="S3 bucket name")
+    parser.add_argument("--s3-prefix", default="", help="S3 key prefix")
+    parser.add_argument("--s3-region", help="AWS region name")
     
     args = parser.parse_args()
     
@@ -105,8 +188,32 @@ def main():
     level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     
+    # Create storage backend
+    if args.s3:
+        # Import here to avoid dependency if not using S3
+        from .storage import S3Backend
+        
+        if not args.s3_bucket:
+            parser.error("--s3-bucket is required when using --s3")
+            
+        storage = S3Backend(
+            bucket_name=args.s3_bucket,
+            prefix=args.s3_prefix,
+            region_name=args.s3_region
+        )
+    elif args.chunks_dir:
+        # Use filesystem backend
+        storage = None  # WeightServer will create a FilesystemBackend
+    else:
+        parser.error("Either --chunks-dir or --s3 with --s3-bucket must be provided")
+    
     # Start server
-    server = WeightServer(args.chunks_dir, args.port)
+    server = WeightServer(
+        storage_backend=storage,
+        chunks_dir=args.chunks_dir,
+        port=args.port,
+        cache_size_mb=args.cache_size
+    )
     asyncio.run(server.start_server())
 
 

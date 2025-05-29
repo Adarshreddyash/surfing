@@ -49,12 +49,14 @@ After chunking, your output directory will contain:
 
 ## 🚀 Starting a Weight Server
 
-The weight server provides model chunks on demand via WebSocket.
+The weight server provides model chunks on demand via WebSocket. You can use either local filesystem storage or AWS S3 for storing model weights.
 
 ### Command Line Interface
 
+#### Local Filesystem Storage
+
 ```bash
-# Basic usage
+# Basic usage with local filesystem
 python -m streaming_weights.weight_server --chunks-dir <chunks_directory> --port <port_number>
 
 # Example
@@ -62,19 +64,72 @@ python -m streaming_weights.weight_server --chunks-dir ./chunks/bert-tiny --port
 
 # With verbose logging
 python -m streaming_weights.weight_server --chunks-dir ./chunks/bert-tiny --port 8765 --verbose
+
+# With custom cache size (in MB)
+python -m streaming_weights.weight_server --chunks-dir ./chunks/bert-tiny --cache-size 200
 ```
 
+#### AWS S3 Storage
+
+```bash
+# Basic usage with S3 storage
+python -m streaming_weights.weight_server --s3 --s3-bucket <bucket_name> --port <port_number>
+
+# Example with S3 prefix (folder in bucket)
+python -m streaming_weights.weight_server --s3 --s3-bucket model-weights --s3-prefix bert-models/tiny --port 8765
+
+# With specific AWS region
+python -m streaming_weights.weight_server --s3 --s3-bucket model-weights --s3-region us-east-1 --port 8765
+
+# Complete example with all options
+python -m streaming_weights.weight_server --s3 --s3-bucket model-weights --s3-prefix models/bert-tiny --s3-region us-west-2 --port 8765 --cache-size 200 --verbose
+```
+
+> **Note:** When using S3 storage, you need to have AWS credentials configured on your system. You can set them using environment variables (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`), AWS credentials file, or IAM roles if running on AWS infrastructure.
+
 ### Python API
+
+#### Local Filesystem Storage
 
 ```python
 import asyncio
 from streaming_weights import WeightServer
 
 async def start_server():
-    # Initialize server
+    # Initialize server with local filesystem storage
     server = WeightServer(
         chunks_dir="./chunks/bert-tiny",
-        port=8765
+        port=8765,
+        cache_size_mb=100  # Optional: Set cache size in MB
+    )
+    
+    # Start server (runs indefinitely)
+    await server.start_server()
+
+# Run the server
+asyncio.run(start_server())
+```
+
+#### AWS S3 Storage
+
+```python
+import asyncio
+from streaming_weights import WeightServer, S3Backend
+
+async def start_server():
+    # Create S3 storage backend
+    storage = S3Backend(
+        bucket_name="model-weights",
+        prefix="models/bert-tiny",  # Optional: folder in bucket
+        region_name="us-east-1"     # Optional: AWS region
+        # AWS credentials are loaded from environment variables or config files
+    )
+    
+    # Initialize server with S3 storage
+    server = WeightServer(
+        storage_backend=storage,
+        port=8765,
+        cache_size_mb=100  # Optional: Set cache size in MB
     )
     
     # Start server (runs indefinitely)
