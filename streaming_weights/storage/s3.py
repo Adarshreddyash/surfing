@@ -24,15 +24,28 @@ class S3Backend(StorageBackend):
     def __init__(self, bucket_name: str, prefix: str = "", 
                  aws_access_key_id: Optional[str] = None,
                  aws_secret_access_key: Optional[str] = None, 
-                 region_name: Optional[str] = None):
+                 aws_session_token: Optional[str] = None,
+                 profile_name: Optional[str] = None,
+                 region_name: Optional[str] = None,
+                 endpoint_url: Optional[str] = None):
         """Initialize the S3 backend.
+        
+        AWS credentials can be provided in several ways:
+        1. Directly via aws_access_key_id and aws_secret_access_key parameters
+        2. Via AWS profile using profile_name parameter
+        3. From environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+        4. From AWS credentials file (~/.aws/credentials)
+        5. From EC2 instance profile or ECS task role (when running on AWS)
         
         Args:
             bucket_name: The name of the S3 bucket
-            prefix: Optional prefix to prepend to all keys
+            prefix: Optional prefix to prepend to all keys (folder in bucket)
             aws_access_key_id: Optional AWS access key ID
             aws_secret_access_key: Optional AWS secret access key
-            region_name: Optional AWS region name
+            aws_session_token: Optional AWS session token (for temporary credentials)
+            profile_name: Optional AWS profile name to use from credentials file
+            region_name: Optional AWS region name (e.g., 'us-east-1')
+            endpoint_url: Optional endpoint URL (for S3-compatible storage)
             
         Raises:
             ImportError: If boto3 is not installed
@@ -48,12 +61,17 @@ class S3Backend(StorageBackend):
         self.prefix = prefix.rstrip("/") + "/" if prefix else ""
         self.logger = logging.getLogger(__name__)
         
-        # Create S3 client
+        # Create S3 client with provided credentials
+        # If no credentials are provided, boto3 will look for them in the environment
+        # or credentials file, or instance profile
         self.s3 = boto3.client(
             's3',
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
-            region_name=region_name
+            aws_session_token=aws_session_token,
+            profile_name=profile_name,
+            region_name=region_name,
+            endpoint_url=endpoint_url
         )
         
         # Verify bucket exists and is accessible

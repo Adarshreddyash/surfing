@@ -4,12 +4,14 @@ This guide provides detailed instructions for using the Surfing weights streamin
 
 ## 📦 Chunking Models
 
-Before you can stream a model, you need to chunk it into smaller pieces. This process only needs to be done once per model.
+Before you can stream a model, you need to chunk it into smaller pieces. This process only needs to be done once per model. You can save chunks to either the local filesystem or to AWS S3.
 
 ### Command Line Interface
 
+#### Local Filesystem Storage
+
 ```bash
-# Basic usage
+# Basic usage with local filesystem
 python -m streaming_weights.chunker <model_name> --output-dir <output_directory>
 
 # Example with compression enabled
@@ -19,23 +21,140 @@ python -m streaming_weights.chunker prajjwal1/bert-tiny --output-dir ./chunks/be
 python -m streaming_weights.chunker prajjwal1/bert-tiny --output-dir ./chunks/bert-tiny --verbose
 ```
 
+#### AWS S3 Storage
+
+```bash
+# Basic usage with S3 storage
+python -m streaming_weights.chunker <model_name> --s3 --s3-bucket <bucket_name>
+
+# Example with S3 prefix (folder in bucket)
+python -m streaming_weights.chunker prajjwal1/bert-tiny --s3 --s3-bucket model-weights --s3-prefix bert-models/tiny
+
+# With specific AWS region and compression
+python -m streaming_weights.chunker prajjwal1/bert-tiny --s3 --s3-bucket model-weights --s3-region us-east-1 --compress
+
+# Complete example with all options
+python -m streaming_weights.chunker prajjwal1/bert-tiny --s3 --s3-bucket model-weights --s3-prefix models/bert-tiny --s3-region us-west-2 --compress --verbose
+```
+
+> **Note:** When using S3 storage, you need to have AWS credentials configured on your system. You can set them using environment variables (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`), AWS credentials file, or IAM roles if running on AWS infrastructure.
+
 ### Python API
 
+#### Local Filesystem Storage
+
 ```python
+import asyncio
 from streaming_weights import ModelChunker
 
-# Initialize chunker
-chunker = ModelChunker(
-    model_name="prajjwal1/bert-tiny",
-    output_dir="./chunks/bert-tiny",
-    compress=True  # Optional: Enable compression
-)
+async def chunk_model():
+    # Initialize chunker with local filesystem storage
+    chunker = ModelChunker(
+        model_name="prajjwal1/bert-tiny",
+        output_dir="./chunks/bert-tiny",
+        compress=True  # Optional: Enable compression
+    )
+    
+    # Chunk the model (async operation)
+    chunk_info = await chunker.chunk_model()
+    print(f"Model chunked into {len(chunk_info['chunks'])} pieces")
+    print(f"Total size: {chunk_info['total_size_mb']:.2f} MB")
+    return chunk_info
 
-# Chunk the model
-chunk_info = chunker.chunk_model()
-print(f"Model chunked into {len(chunk_info['chunks'])} pieces")
-print(f"Total size: {chunk_info['total_size_mb']:.2f} MB")
+# Run the chunking process
+chunk_info = asyncio.run(chunk_model())
 ```
+
+#### AWS S3 Storage
+
+```python
+import asyncio
+from streaming_weights import ModelChunker, S3Backend
+
+async def chunk_model():
+    # Option 1: Initialize chunker with S3 parameters directly
+    chunker = ModelChunker(
+        model_name="prajjwal1/bert-tiny",
+        s3_bucket="model-weights",
+        s3_prefix="models/bert-tiny",  # Optional: folder in bucket
+        s3_region="us-east-1",       # Optional: AWS region
+        compress=True                 # Optional: Enable compression
+    )
+    
+    # Option 2: Create S3 backend manually and pass it to chunker
+    # s3_storage = S3Backend(
+    #     bucket_name="model-weights",
+    #     prefix="models/bert-tiny",
+    #     region_name="us-east-1"
+    # )
+    # chunker = ModelChunker(
+    #     model_name="prajjwal1/bert-tiny",
+    #     storage_backend=s3_storage,
+    #     compress=True
+    # )
+    
+    # Chunk the model (async operation)
+    chunk_info = await chunker.chunk_model()
+    print(f"Model chunked into {len(chunk_info['chunks'])} pieces")
+    print(f"Total size: {chunk_info['total_size_mb']:.2f} MB")
+    return chunk_info
+
+# Run the chunking process
+chunk_info = asyncio.run(chunk_model())
+```
+
+### AWS Credentials for S3 Storage
+
+When using S3 storage, you need to provide AWS credentials. There are several ways to do this:
+
+1. **Command-line arguments** (most explicit):
+   ```bash
+   # For chunking
+   python -m streaming_weights.chunker prajjwal1/bert-tiny --s3 --s3-bucket model-weights \
+       --s3-access-key YOUR_ACCESS_KEY --s3-secret-key YOUR_SECRET_KEY
+   
+   # For serving
+   python -m streaming_weights.weight_server --s3 --s3-bucket model-weights \
+       --s3-access-key YOUR_ACCESS_KEY --s3-secret-key YOUR_SECRET_KEY
+   ```
+
+2. **Environment variables**:
+   ```bash
+   # Set environment variables
+   export AWS_ACCESS_KEY_ID=YOUR_ACCESS_KEY
+   export AWS_SECRET_ACCESS_KEY=YOUR_SECRET_KEY
+   
+   # Then run commands without credential arguments
+   python -m streaming_weights.chunker prajjwal1/bert-tiny --s3 --s3-bucket model-weights
+   ```
+
+3. **AWS credentials file** (`~/.aws/credentials`):
+   ```ini
+   # In ~/.aws/credentials
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   
+   [profile_name]
+   aws_access_key_id = ANOTHER_ACCESS_KEY
+   aws_secret_access_key = ANOTHER_SECRET_KEY
+   ```
+   
+   Then use the default profile:
+   ```bash
+   python -m streaming_weights.chunker prajjwal1/bert-tiny --s3 --s3-bucket model-weights
+   ```
+   
+   Or specify a named profile:
+   ```bash
+   python -m streaming_weights.chunker prajjwal1/bert-tiny --s3 --s3-bucket model-weights \
+       --s3-profile profile_name
+   ```
+
+4. **IAM roles** (when running on AWS EC2, ECS, or Lambda):
+   If your code is running on AWS infrastructure with an IAM role attached, credentials will be automatically retrieved from the instance metadata service.
+
+> **Security Note:** Avoid hardcoding AWS credentials in your code. Use one of the methods above instead.
 
 ### Chunk Output Structure
 

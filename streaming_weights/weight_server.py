@@ -179,8 +179,13 @@ def main():
     # S3 options
     parser.add_argument("--s3", action="store_true", help="Use S3 storage backend")
     parser.add_argument("--s3-bucket", help="S3 bucket name")
-    parser.add_argument("--s3-prefix", default="", help="S3 key prefix")
-    parser.add_argument("--s3-region", help="AWS region name")
+    parser.add_argument("--s3-prefix", default="", help="S3 key prefix (folder in bucket)")
+    parser.add_argument("--s3-region", help="AWS region name (e.g., 'us-east-1')")
+    parser.add_argument("--s3-access-key", help="AWS access key ID")
+    parser.add_argument("--s3-secret-key", help="AWS secret access key")
+    parser.add_argument("--s3-session-token", help="AWS session token (for temporary credentials)")
+    parser.add_argument("--s3-profile", help="AWS profile name to use from credentials file")
+    parser.add_argument("--s3-endpoint", help="Custom endpoint URL (for S3-compatible storage)")
     
     args = parser.parse_args()
     
@@ -199,7 +204,12 @@ def main():
         storage = S3Backend(
             bucket_name=args.s3_bucket,
             prefix=args.s3_prefix,
-            region_name=args.s3_region
+            region_name=args.s3_region,
+            aws_access_key_id=args.s3_access_key,
+            aws_secret_access_key=args.s3_secret_key,
+            aws_session_token=args.s3_session_token,
+            profile_name=args.s3_profile,
+            endpoint_url=args.s3_endpoint
         )
     elif args.chunks_dir:
         # Use filesystem backend
