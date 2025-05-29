@@ -136,7 +136,14 @@ class WeightServer:
         self.logger.info(f"Starting weight server on port {self.port}")
         async def handler(websocket):
             await self.handle_client(websocket, "")
-        async with websockets.serve(handler, "localhost", self.port):
+        # Increase message size limit to 10MB
+        async with websockets.serve(
+            handler, 
+            "localhost", 
+            self.port,
+            max_size=10_485_760,  # 10MB
+            compression=None  # Disable compression for large messages
+        ):
             await asyncio.Future()  # Run forever
 
 

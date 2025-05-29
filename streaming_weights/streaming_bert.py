@@ -57,7 +57,11 @@ class StreamingBertModel(nn.Module):
             try:
                 # Remove unsupported 'timeout' argument for websockets.connect
                 async with websockets.connect(
-                    self.websocket_uri, ping_interval=20, ping_timeout=10
+                    self.websocket_uri,
+                    ping_interval=20,
+                    ping_timeout=10,
+                    max_size=10_485_760,  # 10MB
+                    compression=None  # Disable compression for large messages
                 ) as ws:
                     request = f"GET {component_type} {component_id}"
                     await ws.send(request)
