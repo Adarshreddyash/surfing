@@ -26,25 +26,14 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+          cache: 'pip'
           
-      - name: Set up Python virtual environment
+      - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip
           pip install -r docs/requirements.txt
         
-      - name: Build documentation
+      - name: Build and deploy documentation
         run: |
-          source .venv/bin/activate
           cd docs
-          mkdocs build --clean --verbose
-          
-      - name: Deploy documentation
-        if: success()
-        run: |
-          source .venv/bin/activate
-          cd docs
-          git config --global user.name github-actions[bot]
-          git config --global user.email 41898282+github-actions[bot]@users.noreply.github.com
-          mkdocs gh-deploy --force --config-file mkdocs.yml --remote-branch gh-pages
+          mkdocs gh-deploy --force

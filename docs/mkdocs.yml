@@ -54,18 +54,13 @@ theme:
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
-  - minify:
-      minify_html: true
-      minify_js: true
-      minify_css: true
-      htmlmin_opts:
-        remove_comments: true
-      js_files: []
-      css_files: []
   - git-revision-date-localized:
       enable_creation_date: true
       type: date
   - awesome-pages
+  - material/social
+  - material/search:
+      lang: en
 
 markdown_extensions:
   # Python Markdown
