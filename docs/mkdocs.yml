@@ -60,7 +60,6 @@ plugins:
       enable_creation_date: true
       type: date
   - awesome-pages
-  - social
 
 markdown_extensions:
   # Python Markdown
