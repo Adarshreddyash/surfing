@@ -56,6 +56,12 @@ plugins:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
   - minify:
       minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      js_files: []
+      css_files: []
   - git-revision-date-localized:
       enable_creation_date: true
       type: date
@@ -97,8 +103,7 @@ markdown_extensions:
   - pymdownx.mark
   - pymdownx.smartsymbols
   - pymdownx.snippets:
-      auto_append:
-        - includes/abbreviations.md
+      check_paths: false
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
