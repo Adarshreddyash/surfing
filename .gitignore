@@ -1,5 +1,11 @@
 .env
 
+.venv
+.venv/*
+
+chunks/
+chunks/*
+
 # MkDocs documentation
 docs/site/
 
