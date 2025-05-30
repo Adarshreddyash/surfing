@@ -1,0 +1,83 @@
+site_name: Surfing Weights Documentation
+site_description: Documentation for Surfing Weights - A streaming model weights package for efficient model serving
+site_author: Adarsh Reddy
+repo_url: https://github.com/Adarshreddyash/surfing
+repo_name: surfing
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+  language: en
+
+plugins:
+  - search
+  - awesome-pages
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - tables
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Basic Concepts: getting-started/concepts.md
+  - User Guide:
+    - Configuration: user-guide/configuration.md
+    - Storage Backends: user-guide/storage-backends.md
+    - Model Support: user-guide/model-support.md
+    - Caching: user-guide/caching.md
+    - Error Handling: user-guide/error-handling.md
+  - API Reference:
+    - WeightServer: api/weight-server.md
+    - Storage Backends: api/storage-backends.md
+    - Models: api/models.md
+  - Examples:
+    - Basic Usage: examples/basic-usage.md
+    - S3 Storage: examples/s3-storage.md
+    - LLaMA Model: examples/llama-model.md
+  - Contributing: contributing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Adarshreddyash/surfing
+      name: Surfing on GitHub
+  generator: false
