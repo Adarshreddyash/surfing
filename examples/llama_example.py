@@ -4,9 +4,7 @@ import torch
 from transformers import LlamaTokenizer
 
 # Import the streaming LLaMA model
-from streaming_weights.models import StreamingLlamaModel
-from streaming_weights.weight_server import WeightServer
-from streaming_weights.chunker import ModelChunker
+from streaming_weights import StreamingLlamaModel, WeightServer, ModelChunker
 
 
 async def main():

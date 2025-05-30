@@ -1,7 +1,8 @@
 # streaming_weights/models/llama.py
 import torch
 import time
-from transformers import LlamaConfig, LlamaModel, LlamaDecoderLayer
+from transformers import LlamaConfig, LlamaModel
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from typing import Optional, List, Tuple
 
 from .base import StreamingBaseModel

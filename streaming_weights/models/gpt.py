@@ -1,7 +1,8 @@
 # streaming_weights/models/gpt.py
 import torch
 import time
-from transformers import GPT2Config, GPT2Model, GPT2Block
+from transformers import GPT2Config, GPT2Model
+from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 from typing import Optional, List
 
 from .base import StreamingBaseModel
