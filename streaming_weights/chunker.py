@@ -5,7 +5,7 @@ import argparse
 import io
 import asyncio
 from pathlib import Path
-from transformers import AutoModel, AutoConfig
+from transformers import AutoModel, AutoConfig, BertModel, GPT2Model, T5Model, LlamaModel
 from typing import Dict, Any, Optional, Union
 import logging
 
@@ -80,45 +80,30 @@ class ModelChunker:
         self.logger.info(f"Loading model: {self.model_name}")
 
         # Load model and config
-        model = AutoModel.from_pretrained(self.model_name)
         config = AutoConfig.from_pretrained(self.model_name)
-
+        model_type = config.model_type.lower()
+        
+        # Create chunk info dictionary
         chunk_info = {
             "model_name": self.model_name,
-            "model_type": config.model_type,
-            "num_layers": getattr(config, "num_hidden_layers", 0),
+            "model_type": model_type,
             "chunks": {},
             "total_size_mb": 0,
         }
-
-        # Save embeddings
-        if hasattr(model, "embeddings"):
-            filename = "embeddings.pt"
-            await self._save_component(model.embeddings.state_dict(), filename)
-            chunk_info["chunks"]["embeddings"] = {
-                "file": filename,
-                "size_mb": self._get_file_size(filename),
-            }
-
-        # Save encoder layers
-        if hasattr(model, "encoder") and hasattr(model.encoder, "layer"):
-            for i, layer in enumerate(model.encoder.layer):
-                filename = f"layer_{i}.pt"
-                await self._save_component(layer.state_dict(), filename)
-                chunk_info["chunks"][f"layer_{i}"] = {
-                    "file": filename,
-                    "size_mb": self._get_file_size(filename),
-                }
-
-        # Save pooler (if exists)
-        if hasattr(model, "pooler") and model.pooler is not None:
-            filename = "pooler.pt"
-            await self._save_component(model.pooler.state_dict(), filename)
-            chunk_info["chunks"]["pooler"] = {
-                "file": filename,
-                "size_mb": self._get_file_size(filename),
-            }
-
+        
+        # Determine chunking strategy based on model type
+        if model_type == "bert":
+            await self._chunk_bert_model(chunk_info)
+        elif model_type in ["gpt2", "gpt_neo", "gptj", "gpt_neox"]:
+            await self._chunk_gpt_model(chunk_info)
+        elif model_type in ["t5", "mt5", "bart"]:
+            await self._chunk_encoder_decoder_model(chunk_info)
+        elif model_type in ["llama"]:
+            await self._chunk_llama_model(chunk_info)
+        else:
+            # Generic chunking for unknown model types
+            await self._chunk_generic_model(chunk_info)
+            
         # Save config
         if self.output_dir is not None:
             # Save config directly to filesystem if using local storage
@@ -154,6 +139,266 @@ class ModelChunker:
             self.logger.info("Chunks saved to storage backend")
 
         return chunk_info
+        
+    async def _chunk_bert_model(self, chunk_info: Dict[str, Any]) -> None:
+        """Chunk a BERT-style model into separate files"""
+        self.logger.info("Chunking BERT-style model")
+        
+        # Load model
+        model = BertModel.from_pretrained(self.model_name)
+        config = model.config
+        
+        # Add num_layers to chunk_info
+        chunk_info["num_layers"] = config.num_hidden_layers
+        
+        # Save embeddings
+        if hasattr(model, "embeddings"):
+            filename = "embeddings.pt"
+            await self._save_component(model.embeddings.state_dict(), filename)
+            chunk_info["chunks"]["embeddings"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+
+        # Save encoder layers
+        if hasattr(model, "encoder") and hasattr(model.encoder, "layer"):
+            for i, layer in enumerate(model.encoder.layer):
+                filename = f"layer_{i}.pt"
+                await self._save_component(layer.state_dict(), filename)
+                chunk_info["chunks"][f"layer_{i}"] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+
+        # Save pooler (if exists)
+        if hasattr(model, "pooler") and model.pooler is not None:
+            filename = "pooler.pt"
+            await self._save_component(model.pooler.state_dict(), filename)
+            chunk_info["chunks"]["pooler"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+            
+    async def _chunk_gpt_model(self, chunk_info: Dict[str, Any]) -> None:
+        """Chunk a GPT-style model into separate files"""
+        self.logger.info("Chunking GPT-style model")
+        
+        # Load model
+        model = GPT2Model.from_pretrained(self.model_name)
+        config = model.config
+        
+        # Add num_layers to chunk_info
+        chunk_info["num_layers"] = config.n_layer
+        
+        # Save token embeddings
+        if hasattr(model, "wte"):
+            filename = "wte.pt"
+            await self._save_component(model.wte.state_dict(), filename)
+            chunk_info["chunks"]["wte"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+            
+        # Save position embeddings
+        if hasattr(model, "wpe"):
+            filename = "wpe.pt"
+            await self._save_component(model.wpe.state_dict(), filename)
+            chunk_info["chunks"]["wpe"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+
+        # Save transformer blocks
+        if hasattr(model, "h"):
+            for i, block in enumerate(model.h):
+                filename = f"block_{i}.pt"
+                await self._save_component(block.state_dict(), filename)
+                chunk_info["chunks"][f"block_{i}"] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+
+        # Save final layer norm
+        if hasattr(model, "ln_f"):
+            filename = "ln_f.pt"
+            await self._save_component(model.ln_f.state_dict(), filename)
+            chunk_info["chunks"]["ln_f"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+            
+    async def _chunk_llama_model(self, chunk_info: Dict[str, Any]) -> None:
+        """Chunk a LLaMA model into separate files"""
+        self.logger.info("Chunking LLaMA model")
+        
+        # Load model
+        model = LlamaModel.from_pretrained(self.model_name)
+        config = model.config
+        
+        # Add num_layers to chunk_info
+        num_layers = len(config.hidden_sizes) if hasattr(config, 'hidden_sizes') else config.num_hidden_layers
+        chunk_info["num_layers"] = num_layers
+        
+        # Save token embeddings
+        if hasattr(model, "embed_tokens"):
+            filename = "embed_tokens.pt"
+            await self._save_component(model.embed_tokens.state_dict(), filename)
+            chunk_info["chunks"]["embed_tokens"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+            
+        # Save layers
+        if hasattr(model, "layers"):
+            for i, layer in enumerate(model.layers):
+                filename = f"layer_{i}.pt"
+                await self._save_component(layer.state_dict(), filename)
+                chunk_info["chunks"][f"layer_{i}"] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+
+        # Save final normalization layer
+        if hasattr(model, "norm"):
+            filename = "norm.pt"
+            await self._save_component(model.norm.state_dict(), filename)
+            chunk_info["chunks"]["norm"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+            
+    async def _chunk_encoder_decoder_model(self, chunk_info: Dict[str, Any]) -> None:
+        """Chunk an encoder-decoder model (T5, BART) into separate files"""
+        self.logger.info("Chunking encoder-decoder model")
+        
+        # Load model
+        model = T5Model.from_pretrained(self.model_name)
+        config = model.config
+        
+        # Add num_layers to chunk_info
+        chunk_info["num_layers"] = config.num_layers
+        chunk_info["num_decoder_layers"] = config.num_decoder_layers
+        
+        # Save shared embeddings if they exist
+        if hasattr(model, "shared"):
+            filename = "shared_embeddings.pt"
+            await self._save_component(model.shared.state_dict(), filename)
+            chunk_info["chunks"]["shared_embeddings"] = {
+                "file": filename,
+                "size_mb": self._get_file_size(filename),
+            }
+            
+        # Save encoder components
+        if hasattr(model, "encoder"):
+            # Save encoder embeddings if separate from shared
+            if hasattr(model.encoder, "embed_tokens") and not model.encoder.embed_tokens == model.shared:
+                filename = "encoder_embeddings.pt"
+                await self._save_component(model.encoder.embed_tokens.state_dict(), filename)
+                chunk_info["chunks"]["encoder_embeddings"] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+                
+            # Save encoder blocks
+            if hasattr(model.encoder, "block"):
+                for i, block in enumerate(model.encoder.block):
+                    filename = f"encoder_block_{i}.pt"
+                    await self._save_component(block.state_dict(), filename)
+                    chunk_info["chunks"][f"encoder_block_{i}"] = {
+                        "file": filename,
+                        "size_mb": self._get_file_size(filename),
+                    }
+                    
+            # Save encoder final layer norm
+            if hasattr(model.encoder, "final_layer_norm"):
+                filename = "encoder_final_layer_norm.pt"
+                await self._save_component(model.encoder.final_layer_norm.state_dict(), filename)
+                chunk_info["chunks"]["encoder_final_layer_norm"] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+                
+        # Save decoder components
+        if hasattr(model, "decoder"):
+            # Save decoder embeddings if separate from shared
+            if hasattr(model.decoder, "embed_tokens") and not model.decoder.embed_tokens == model.shared:
+                filename = "decoder_embeddings.pt"
+                await self._save_component(model.decoder.embed_tokens.state_dict(), filename)
+                chunk_info["chunks"]["decoder_embeddings"] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+                
+            # Save decoder blocks
+            if hasattr(model.decoder, "block"):
+                for i, block in enumerate(model.decoder.block):
+                    filename = f"decoder_block_{i}.pt"
+                    await self._save_component(block.state_dict(), filename)
+                    chunk_info["chunks"][f"decoder_block_{i}"] = {
+                        "file": filename,
+                        "size_mb": self._get_file_size(filename),
+                    }
+                    
+            # Save decoder final layer norm
+            if hasattr(model.decoder, "final_layer_norm"):
+                filename = "decoder_final_layer_norm.pt"
+                await self._save_component(model.decoder.final_layer_norm.state_dict(), filename)
+                chunk_info["chunks"]["decoder_final_layer_norm"] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+                
+    async def _chunk_generic_model(self, chunk_info: Dict[str, Any]) -> None:
+        """Chunk a generic transformer model by attempting to identify components"""
+        self.logger.info("Chunking generic model - attempting to identify components")
+        
+        # Load model
+        model = AutoModel.from_pretrained(self.model_name)
+        config = model.config
+        
+        # Try to determine number of layers
+        num_layers = 0
+        for attr_name in ["num_hidden_layers", "n_layer", "num_layers", "encoder_layers"]:
+            if hasattr(config, attr_name):
+                num_layers = getattr(config, attr_name)
+                chunk_info["num_layers"] = num_layers
+                break
+                
+        # Save all top-level modules separately
+        for name, module in model.named_children():
+            # Skip certain modules that might be too large or not needed
+            if name in ["device_map", "_no_split_modules"]:
+                continue
+                
+            # Check if this is a list/sequence of layers
+            if hasattr(module, "__len__") and not isinstance(module, torch.nn.Embedding):
+                try:
+                    # Try to iterate through the module
+                    for i, layer in enumerate(module):
+                        filename = f"{name}_{i}.pt"
+                        await self._save_component(layer.state_dict(), filename)
+                        chunk_info["chunks"][f"{name}_{i}"] = {
+                            "file": filename,
+                            "size_mb": self._get_file_size(filename),
+                        }
+                except (TypeError, ValueError):
+                    # Not iterable, save as a single component
+                    filename = f"{name}.pt"
+                    await self._save_component(module.state_dict(), filename)
+                    chunk_info["chunks"][name] = {
+                        "file": filename,
+                        "size_mb": self._get_file_size(filename),
+                    }
+            else:
+                # Save as a single component
+                filename = f"{name}.pt"
+                await self._save_component(module.state_dict(), filename)
+                chunk_info["chunks"][name] = {
+                    "file": filename,
+                    "size_mb": self._get_file_size(filename),
+                }
+
+
 
     async def _save_component(self, state_dict: Dict[str, torch.Tensor], filename: str):
         """Save a model component with optional compression

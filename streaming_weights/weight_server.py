@@ -59,15 +59,50 @@ class WeightServer:
             component_type = parts[1].lower()
             component_id = parts[2]
 
-            # Load weights based on request
+            # Map component type to filename
+            # BERT components
             if component_type == "layer":
                 filename = f"layer_{component_id}.pt"
             elif component_type == "embeddings":
                 filename = "embeddings.pt"
             elif component_type == "pooler":
                 filename = "pooler.pt"
+            # GPT components
+            elif component_type == "block":
+                filename = f"block_{component_id}.pt"
+            elif component_type == "wte":
+                filename = "wte.pt"
+            elif component_type == "wpe":
+                filename = "wpe.pt"
+            elif component_type == "ln_f":
+                filename = "ln_f.pt"
+            # T5/Encoder-Decoder components
+            elif component_type == "encoder_block":
+                filename = f"encoder_block_{component_id}.pt"
+            elif component_type == "decoder_block":
+                filename = f"decoder_block_{component_id}.pt"
+            elif component_type == "shared_embeddings":
+                filename = "shared_embeddings.pt"
+            elif component_type == "encoder_embeddings":
+                filename = "encoder_embeddings.pt"
+            elif component_type == "decoder_embeddings":
+                filename = "decoder_embeddings.pt"
+            elif component_type == "encoder_final_layer_norm":
+                filename = "encoder_final_layer_norm.pt"
+            elif component_type == "decoder_final_layer_norm":
+                filename = "decoder_final_layer_norm.pt"
+            # LLaMA components
+            elif component_type == "embed_tokens":
+                filename = "embed_tokens.pt"
+            elif component_type == "norm":
+                filename = "norm.pt"
+            # Generic components (for unknown model types)
+            elif "_" in component_type:
+                # Handle components like "h_0", "encoder_0", etc.
+                filename = f"{component_type}_{component_id}.pt"
             else:
-                return json.dumps({"success": False, "error": f"Unknown component: {component_type}"})
+                # Handle single components like "embeddings", "lm_head", etc.
+                filename = f"{component_type}.pt"
 
             # Check cache first
             cache_key = f"{component_type}_{component_id}"
