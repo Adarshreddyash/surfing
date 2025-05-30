@@ -54,13 +54,11 @@ theme:
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+      lang: en
   - git-revision-date-localized:
       enable_creation_date: true
       type: date
   - awesome-pages
-  - material/social
-  - material/search:
-      lang: en
 
 markdown_extensions:
   # Python Markdown
