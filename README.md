@@ -205,3 +205,6 @@ Once the server is running, you can connect to it using the StreamingBertModel a
 - Implement authentication for weight servers
 - Validate chunk integrity with checksums
 - Rate limiting for DoS
+
+📚 Documentation: http://adarshreddyash.github.io/surfing-weights/
+📬 Contribute or Report Issues: GitHub Issues | Discussions
