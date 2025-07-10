@@ -1,4 +1,5 @@
 # setup.py
+# WARNING: This package is in developmental and beta phase. Do NOT use in production environments.
 from setuptools import setup, find_packages
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -7,12 +8,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="streaming-weights",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="Streaming weights engine for edge AI deployment",
+    author="Adarsh Reddy",  # <-- Change this to your name
+    author_email="adarshadelli@gmail.com",  # <-- Change this to your email
+    description="[BETA] Streaming weights engine for edge AI deployment. Do NOT use in production.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/streaming-weights",
+    url="https://github.com/yourusername/streaming-weights",  # <-- Change this to your repo URL
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",
