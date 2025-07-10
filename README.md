@@ -14,7 +14,7 @@ A Python Server for streaming transformer model weights to enable efficient AI i
 - **Edge Optimized**: Designed for resource-constrained devices (IoT, mobile, embedded)
 - **HuggingFace Compatible**: Works with existing transformer models from HuggingFace Hub
 - **Async Architecture**: Non-blocking inference with async/await support
-- **Production Ready**: Monitoring, compression, and distributed caching support
+<!-- - **Production Ready**: Monitoring, compression, and distributed caching support -->
 
 ## 📦 Installation
 
